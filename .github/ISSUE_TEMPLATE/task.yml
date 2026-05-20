@@ -1,0 +1,45 @@
+name: Task
+description: Track documentation, refactoring, setup, or operational work.
+title: "[Task] "
+labels: ["task", "needs-triage"]
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: 작업을 한 문장으로 요약한다.
+    validations:
+      required: true
+  - type: textarea
+    id: background
+    attributes:
+      label: Background
+      description: 왜 필요한 작업인지 적는다.
+    validations:
+      required: true
+  - type: textarea
+    id: checklist
+    attributes:
+      label: Checklist
+      description: 수행할 작업을 체크리스트로 적는다.
+      value: |
+        - [ ] 
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: 관련 파일, 문서, 로그, 테스트를 적는다.
+    validations:
+      required: false
+  - type: textarea
+    id: done
+    attributes:
+      label: Definition Of Done
+      value: |
+        - [ ] 변경사항 검토
+        - [ ] 필요한 검증 완료
+        - [ ] 후속 작업 기록
+    validations:
+      required: true

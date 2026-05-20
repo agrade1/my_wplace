@@ -1,0 +1,88 @@
+name: Bug Report
+description: Report a reproducible defect.
+title: "[Bug] "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        재현 가능한 문제만 등록한다. 기대 동작이 불명확하면 먼저 `project-context.md` 또는 관련 요구사항 문서를 확인한다.
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: 문제를 한 문장으로 요약한다.
+      placeholder: 예) 우클릭 드래그 중 일부 선택 픽셀이 해제되지 않음
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: 관련 화면, 사용자 흐름, 도메인 규칙을 적는다.
+      placeholder: 어떤 기능에서 어떤 조건으로 발생했는지 적어주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps To Reproduce
+      description: 재현 절차를 순서대로 적는다.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: 정상 동작을 적는다.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: 실제 동작을 적는다.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: 로그, 스크린샷, 테스트 실패, 콘솔 에러 등 근거를 붙인다.
+      placeholder: 파일 경로, 로그, 스크린샷, 테스트 명령과 실패 메시지
+    validations:
+      required: false
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - P0 - blocks all core usage
+        - P1 - blocks a core flow
+        - P2 - degraded but usable
+        - P3 - minor issue
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Suspected Scope
+      description: 관련 파일, 기능, 테스트 영역을 알고 있다면 적는다.
+    validations:
+      required: false
+  - type: textarea
+    id: done
+    attributes:
+      label: Definition Of Done
+      description: 이 이슈가 닫히기 위한 조건을 적는다.
+      value: |
+        - [ ] 원인 확인
+        - [ ] 최소 수정
+        - [ ] 회귀 테스트 추가 또는 기존 테스트로 검증
+        - [ ] 테스트/린트 통과
+    validations:
+      required: true

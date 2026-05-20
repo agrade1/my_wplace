@@ -1,0 +1,74 @@
+name: Feature Request
+description: Propose a scoped product or engineering feature.
+title: "[Feat] "
+labels: ["feature", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        기능 요청은 사용자 가치, 범위, 비범위, 검증 방법을 함께 적는다.
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: 기능을 한 문장으로 요약한다.
+      placeholder: 예) 지도 확대 시 픽셀 레이어 표시
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: 어떤 문제나 사용자 니즈를 해결하는지 적는다.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: 제안하는 동작과 사용자 흐름을 적는다.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: 이번 이슈에 포함할 작업을 적는다.
+      value: |
+        - 
+    validations:
+      required: true
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out Of Scope
+      description: 이번 이슈에서 하지 않을 작업을 적는다.
+      value: |
+        - 
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: 완료 판정 기준을 체크리스트로 적는다.
+      value: |
+        - [ ] 
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Test Plan
+      description: 필요한 테스트와 수동 확인 방법을 적는다.
+      value: |
+        - [ ] 
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks
+      description: 사이드이펙트, 성능, 보안, UX 리스크를 적는다.
+    validations:
+      required: false

@@ -1,40 +1,40 @@
-# Summary
+# 요약
 
 - 
 
-# Linked Issue
+# 연관 이슈
 
 - Closes #
 
-# Changes
+# 변경 사항
 
 - 
 
-# Verification
+# 검증
 
-- [ ] Tests added or updated
-- [ ] Lint/typecheck passed
-- [ ] Manual check completed if needed
+- [ ] 테스트를 추가하거나 수정했다
+- [ ] lint/typecheck를 통과했다
+- [ ] 필요한 경우 수동 확인을 완료했다
 
-Commands:
+실행 명령:
 
 ```sh
 
 ```
 
-# Risk
+# 리스크
 
 - 
 
-# Rollback
+# 롤백
 
-- Before merge: revert this PR branch or close the PR.
-- After merge: `git revert <merge-commit>`
+- 머지 전: PR 브랜치를 되돌리거나 PR을 닫는다.
+- 머지 후: `git revert <merge-commit>`
 
-# Checklist
+# 체크리스트
 
-- [ ] Branch name follows `<scope>/<issue-number>-<work-summary>`
-- [ ] Commit messages follow `<type>: <short summary>`
-- [ ] Scope is limited to the linked issue
-- [ ] No unrelated formatting or refactoring
-- [ ] Documentation updated if behavior or workflow changed
+- [ ] 브랜치 이름이 `<scope>/<issue-number>-<work-summary>` 형식을 따른다
+- [ ] 커밋 메시지가 `<type>: <short summary>` 형식을 따른다
+- [ ] 변경 범위가 연관 이슈로 제한되어 있다
+- [ ] 관련 없는 포맷팅/리팩터링이 없다
+- [ ] 동작이나 워크플로 변경 시 문서를 업데이트했다

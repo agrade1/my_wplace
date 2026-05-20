@@ -11,8 +11,10 @@ type PixelEditorCanvasProps = {
   pixelColors: ReadonlyMap<string, string>;
   onSelectColor: (color: string) => void;
   onPixelPointerDown: (id: string, button: number) => void;
-  onPixelPointerMove: (id: string) => void;
-  onPointerUp: () => void;
+  onPixelPointerMove: (id: string, buttons: number) => void;
+  onPointerEnd: () => void;
+  onSpaceSelectStart: () => void;
+  onSpaceSelectEnd: () => void;
 };
 
 function toPixelId(x: number, y: number) {
@@ -29,7 +31,9 @@ export function PixelEditorCanvas({
   onSelectColor,
   onPixelPointerDown,
   onPixelPointerMove,
-  onPointerUp
+  onPointerEnd,
+  onSpaceSelectStart,
+  onSpaceSelectEnd
 }: PixelEditorCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const canvasSize = useMemo(() => gridSize * cellSize, [gridSize, cellSize]);
@@ -53,18 +57,47 @@ export function PixelEditorCanvas({
         ctx.fillStyle = color;
         ctx.fillRect(left, top, cellSize, cellSize);
 
-        if (selected.has(id)) {
+        const isSelected = selected.has(id);
+        const isPainted = pixelColors.has(id);
+
+        if (isSelected) {
           ctx.strokeStyle = "#111111";
           ctx.lineWidth = 2;
+          ctx.strokeRect(left + 1, top + 1, cellSize - 2, cellSize - 2);
+        } else if (isPainted) {
+          // Painted cells keep a persistent visual boundary.
+          ctx.strokeStyle = "#0f766e";
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(left + 1, top + 1, cellSize - 2, cellSize - 2);
         } else {
           ctx.strokeStyle = "#d4d4d8";
           ctx.lineWidth = 1;
+          ctx.strokeRect(left + 1, top + 1, cellSize - 2, cellSize - 2);
         }
-
-        ctx.strokeRect(left + 0.5, top + 0.5, cellSize - 1, cellSize - 1);
       }
     }
   }, [cellSize, gridSize, pixelColors, selected]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== "Space") return;
+      event.preventDefault();
+      onSpaceSelectStart();
+    };
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.code !== "Space") return;
+      onSpaceSelectEnd();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [onSpaceSelectEnd, onSpaceSelectStart]);
 
   const getPixelFromEvent = (event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -116,10 +149,13 @@ export function PixelEditorCanvas({
         onMouseMove={(event) => {
           const id = getPixelFromEvent(event);
           if (!id) return;
-          onPixelPointerMove(id);
+          onPixelPointerMove(id, event.buttons);
         }}
-        onMouseUp={onPointerUp}
-        onMouseLeave={onPointerUp}
+        onMouseUp={onPointerEnd}
+        onMouseLeave={() => {
+          onPointerEnd();
+          onSpaceSelectEnd();
+        }}
       />
     </section>
   );

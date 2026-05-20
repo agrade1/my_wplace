@@ -16,36 +16,74 @@ export function usePixelEditorCore() {
   const [activeColor, setActiveColor] = useState<string>(DEFAULT_PALETTE[0]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pixelColors, setPixelColors] = useState<Map<string, string>>(new Map());
-  const [isDragging, setIsDragging] = useState(false);
+  const [isSpaceSelecting, setIsSpaceSelecting] = useState(false);
+  const [isRightDragging, setIsRightDragging] = useState(false);
 
   const onSelectColor = (color: string) => {
     setActiveColor(color);
   };
 
+  const paintPixel = (id: string) => {
+    setPixelColors((prev) => {
+      const next = new Map(prev);
+      next.set(id, activeColor);
+      return next;
+    });
+  };
+
+  const clearPixel = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+
+    setPixelColors((prev) => {
+      const next = new Map(prev);
+      next.delete(id);
+      return next;
+    });
+  };
+
   const onPixelMouseDown = (id: string, button: number) => {
-    // TODO(core): right-click deselect and space-drag multi-select rules.
+    // Right-click removes the cell from the current selection.
     if (button === 2) {
-      setSelected((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
+      setIsRightDragging(true);
+      clearPixel(id);
       return;
     }
 
-    setSelected(new Set([id]));
-    setIsDragging(true);
-  };
+    if (button !== 0) return;
 
-  const onPixelMouseEnter = (id: string) => {
-    if (!isDragging) return;
-
-    // TODO(core): replace with space-drag multi-select semantics.
+    // Left-click keeps previous selection and adds only the clicked cell.
     setSelected((prev) => new Set(prev).add(id));
+    paintPixel(id);
   };
 
-  const onMouseUp = () => {
-    setIsDragging(false);
+  const onPixelMouseEnter = (id: string, buttons: number) => {
+    const isRightButtonPressed = (buttons & 2) === 2;
+
+    if (isRightDragging && isRightButtonPressed) {
+      clearPixel(id);
+      return;
+    }
+
+    if (!isSpaceSelecting) return;
+
+    setSelected((prev) => new Set(prev).add(id));
+    paintPixel(id);
+  };
+
+  const onPointerEnd = () => {
+    setIsRightDragging(false);
+  };
+
+  const onSpaceSelectStart = () => {
+    setIsSpaceSelecting(true);
+  };
+
+  const onSpaceSelectEnd = () => {
+    setIsSpaceSelecting(false);
   };
 
   const applyColorToSelection = () => {
@@ -68,7 +106,9 @@ export function usePixelEditorCore() {
     onSelectColor,
     onPixelMouseDown,
     onPixelMouseEnter,
-    onMouseUp,
+    onPointerEnd,
+    onSpaceSelectStart,
+    onSpaceSelectEnd,
     applyColorToSelection
   };
 }

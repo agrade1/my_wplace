@@ -15,12 +15,7 @@ export default function Home() {
         </p>
       </header>
 
-      <div style={{ display: "flex", gap: 8 }}>
-        <button type="button" onClick={core.applyColorToSelection}>
-          Apply color to selection
-        </button>
-        <span>Selected pixels: {core.selected.size}</span>
-      </div>
+      <span>Selected pixels: {core.selected.size}</span>
 
       <PixelEditorCanvas
         gridSize={32}
@@ -32,7 +27,9 @@ export default function Home() {
         onSelectColor={core.onSelectColor}
         onPixelPointerDown={core.onPixelMouseDown}
         onPixelPointerMove={core.onPixelMouseEnter}
-        onPointerUp={core.onMouseUp}
+        onPointerEnd={core.onPointerEnd}
+        onSpaceSelectStart={core.onSpaceSelectStart}
+        onSpaceSelectEnd={core.onSpaceSelectEnd}
       />
     </main>
   );

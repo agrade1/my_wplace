@@ -1,6 +1,7 @@
 # Local project work log
 project-log.md
 project-log*.md
+.private-notes/
 node_modules
 .next
 out

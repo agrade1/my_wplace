@@ -5,10 +5,14 @@ import { useEffect, useMemo, useRef } from "react";
 type PixelEditorCanvasProps = {
   gridSize: number;
   cellSize: number;
+  showGrid: boolean;
+  hideEmptyPixels: boolean;
+  readOnly: boolean;
   activeColor: string;
   palette: readonly string[];
   selected: ReadonlySet<string>;
   pixelColors: ReadonlyMap<string, string>;
+  onRequestPaintMode: (id: string, button: number) => void;
   onSelectColor: (color: string) => void;
   onPixelPointerDown: (id: string, button: number) => void;
   onPixelPointerMove: (id: string, buttons: number) => void;
@@ -24,10 +28,14 @@ function toPixelId(x: number, y: number) {
 export function PixelEditorCanvas({
   gridSize,
   cellSize,
+  showGrid,
+  hideEmptyPixels,
+  readOnly,
   activeColor,
   palette,
   selected,
   pixelColors,
+  onRequestPaintMode,
   onSelectColor,
   onPixelPointerDown,
   onPixelPointerMove,
@@ -50,7 +58,8 @@ export function PixelEditorCanvas({
     for (let y = 0; y < gridSize; y += 1) {
       for (let x = 0; x < gridSize; x += 1) {
         const id = toPixelId(x, y);
-        const color = pixelColors.get(id) ?? "#ffffff";
+        const isPainted = pixelColors.has(id);
+        const color = isPainted ? pixelColors.get(id) ?? "#ffffff" : hideEmptyPixels ? "transparent" : "#ffffff";
         const left = x * cellSize;
         const top = y * cellSize;
 
@@ -58,7 +67,6 @@ export function PixelEditorCanvas({
         ctx.fillRect(left, top, cellSize, cellSize);
 
         const isSelected = selected.has(id);
-        const isPainted = pixelColors.has(id);
 
         if (isSelected) {
           ctx.strokeStyle = "#111111";
@@ -69,14 +77,14 @@ export function PixelEditorCanvas({
           ctx.strokeStyle = "#0f766e";
           ctx.lineWidth = 1.5;
           ctx.strokeRect(left + 1, top + 1, cellSize - 2, cellSize - 2);
-        } else {
+        } else if (showGrid) {
           ctx.strokeStyle = "#d4d4d8";
           ctx.lineWidth = 1;
           ctx.strokeRect(left + 1, top + 1, cellSize - 2, cellSize - 2);
         }
       }
     }
-  }, [cellSize, gridSize, pixelColors, selected]);
+  }, [cellSize, gridSize, hideEmptyPixels, pixelColors, selected, showGrid]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -139,14 +147,20 @@ export function PixelEditorCanvas({
         ref={canvasRef}
         width={canvasSize}
         height={canvasSize}
-        style={{ border: "1px solid #d4d4d8", borderRadius: 8, cursor: "crosshair" }}
+        style={{ border: "1px solid #d4d4d8", borderRadius: 8, cursor: readOnly ? "pointer" : "crosshair" }}
         onContextMenu={(event) => event.preventDefault()}
         onMouseDown={(event) => {
           const id = getPixelFromEvent(event);
           if (!id) return;
+
+          if (readOnly) {
+            onRequestPaintMode(id, event.button);
+            return;
+          }
           onPixelPointerDown(id, event.button);
         }}
         onMouseMove={(event) => {
+          if (readOnly) return;
           const id = getPixelFromEvent(event);
           if (!id) return;
           onPixelPointerMove(id, event.buttons);

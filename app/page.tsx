@@ -1,12 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PixelEditorCanvas } from "@/components/pixel-editor/pixel-editor-canvas";
 import { usePixelEditorCore } from "@/features/pixel-editor/use-pixel-editor-core";
 
 export default function Home() {
   const core = usePixelEditorCore();
   const [isPaintMode, setIsPaintMode] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(3);
+  const canShowPixelLayer = zoomLevel > 3;
+
+  useEffect(() => {
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+
+      setZoomLevel((prev) => {
+        const delta = event.deltaY < 0 ? 0.25 : -0.25;
+        return Math.min(6, Math.max(1, Number((prev + delta).toFixed(2))));
+      });
+    };
+
+    window.addEventListener("wheel", handleWheel, { passive: false });
+
+    return () => {
+      window.removeEventListener("wheel", handleWheel);
+    };
+  }, []);
 
   return (
     <main
@@ -15,8 +34,7 @@ export default function Home() {
         padding: 24,
         display: "grid",
         gap: 20,
-        background:
-          "linear-gradient(180deg, #f6f7f1 0%, #eef1e5 100%)"
+        background: "linear-gradient(180deg, #f6f7f1 0%, #eef1e5 100%)"
       }}
     >
       <header style={{ display: "grid", gap: 8 }}>
@@ -24,8 +42,13 @@ export default function Home() {
           <div>
             <h1 style={{ margin: 0, fontSize: 28 }}>Pixel Layer</h1>
             <p style={{ margin: "6px 0 0", color: "#475569" }}>
-              {isPaintMode ? "Paint mode" : "View mode"}
+              {canShowPixelLayer ? (isPaintMode ? "Paint mode" : "View mode") : "Zoom in to reveal pixels"}
             </p>
+          </div>
+
+          <div style={{ display: "flex", gap: 12, alignItems: "center", color: "#334155" }}>
+            <span>Zoom</span>
+            <strong>{zoomLevel.toFixed(2)}</strong>
           </div>
 
           <div
@@ -53,14 +76,17 @@ export default function Home() {
             </button>
             <button
               type="button"
-              onClick={() => setIsPaintMode(true)}
+              onClick={() => {
+                if (!canShowPixelLayer) return;
+                setIsPaintMode(true);
+              }}
               style={{
                 border: 0,
                 borderRadius: 6,
                 padding: "10px 14px",
                 backgroundColor: isPaintMode ? "#111827" : "transparent",
-                color: isPaintMode ? "#ffffff" : "#334155",
-                cursor: "pointer"
+                color: canShowPixelLayer ? (isPaintMode ? "#ffffff" : "#334155") : "#94a3b8",
+                cursor: canShowPixelLayer ? "pointer" : "not-allowed"
               }}
             >
               Paint
@@ -86,31 +112,47 @@ export default function Home() {
           </div>
 
           <div style={{ color: "#475569" }}>
-            {isPaintMode ? "Grid visible" : "Click canvas to enter paint mode"}
+            {canShowPixelLayer ? (isPaintMode ? "Grid visible" : "Click canvas to enter paint mode") : "Pixel layer hidden below zoom 3"}
           </div>
         </div>
 
-        <PixelEditorCanvas
-          gridSize={32}
-          cellSize={16}
-          showGrid={isPaintMode}
-          hideEmptyPixels={!isPaintMode}
-          readOnly={!isPaintMode}
-          palette={core.palette}
-          activeColor={core.activeColor}
-          selected={core.selected}
-          pixelColors={core.pixelColors}
-          onRequestPaintMode={(id, button) => {
-            setIsPaintMode(true);
-            core.onPixelMouseDown(id, button);
-          }}
-          onSelectColor={core.onSelectColor}
-          onPixelPointerDown={core.onPixelMouseDown}
-          onPixelPointerMove={core.onPixelMouseEnter}
-          onPointerEnd={core.onPointerEnd}
-          onSpaceSelectStart={core.onSpaceSelectStart}
-          onSpaceSelectEnd={core.onSpaceSelectEnd}
-        />
+        {canShowPixelLayer ? (
+          <PixelEditorCanvas
+            gridSize={32}
+            cellSize={16}
+            showGrid={isPaintMode}
+            hideEmptyPixels={!isPaintMode}
+            readOnly={!isPaintMode}
+            palette={core.palette}
+            activeColor={core.activeColor}
+            selected={core.selected}
+            pixelColors={core.pixelColors}
+            onRequestPaintMode={(id, button) => {
+              setIsPaintMode(true);
+              core.onPixelMouseDown(id, button);
+            }}
+            onSelectColor={core.onSelectColor}
+            onPixelPointerDown={core.onPixelMouseDown}
+            onPixelPointerMove={core.onPixelMouseEnter}
+            onPointerEnd={core.onPointerEnd}
+            onSpaceSelectStart={core.onSpaceSelectStart}
+            onSpaceSelectEnd={core.onSpaceSelectEnd}
+          />
+        ) : (
+          <div
+            style={{
+              minHeight: 260,
+              display: "grid",
+              placeItems: "center",
+              borderRadius: 8,
+              border: "1px dashed rgba(100, 116, 139, 0.45)",
+              color: "#64748b",
+              backgroundColor: "rgba(255,255,255,0.44)"
+            }}
+          >
+            Zoom above 3.00 to render the pixel layer
+          </div>
+        )}
       </section>
     </main>
   );

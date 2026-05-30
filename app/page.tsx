@@ -45,6 +45,7 @@ const INITIAL_MAP_VIEW_STATE: ViewState = {
 export default function Home() {
   const core = usePixelEditorCore();
   const [isPaintMode, setIsPaintMode] = useState(false);
+  const [isModePanelOpen, setIsModePanelOpen] = useState(false);
   const [mapViewState, setMapViewState] = useState<ViewState>(INITIAL_MAP_VIEW_STATE);
   const [mapBounds, setMapBounds] = useState<LngLatBounds | null>(null);
   const zoomAnimationRef = useRef<number | null>(null);
@@ -111,42 +112,90 @@ export default function Home() {
         onBoundsChange={setMapBounds}
         showOverlay={canRenderChunkOverlay}
         overlayHint={`Zoom above ${PIXEL_LAYER_ZOOM_THRESHOLD.toFixed(2)}`}
+        onMapClick={() => setIsModePanelOpen(true)}
         controls={
-          <div
-            style={{
-              position: "absolute",
-              left: 16,
-              top: 16,
-              display: "grid",
-              overflow: "hidden",
-              borderRadius: 8,
-              backgroundColor: "rgba(248, 250, 252, 0.86)",
-              boxShadow: "0 14px 36px rgba(15, 23, 42, 0.16)",
-              backdropFilter: "blur(10px)"
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => updateMapZoom(1)}
-              aria-label="Zoom in"
-              style={zoomButtonStyle}
+          <>
+            <div
+              style={{
+                position: "absolute",
+                left: 16,
+                top: 16,
+                display: "grid",
+                overflow: "hidden",
+                borderRadius: 8,
+                backgroundColor: "rgba(248, 250, 252, 0.86)",
+                boxShadow: "0 14px 36px rgba(15, 23, 42, 0.16)",
+                backdropFilter: "blur(10px)"
+              }}
             >
-              +
-            </button>
-            <button
-              type="button"
-              onClick={() => updateMapZoom(-1)}
-              aria-label="Zoom out"
-              style={{ ...zoomButtonStyle, borderTop: "1px solid rgba(148, 163, 184, 0.32)" }}
-            >
-              -
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={() => updateMapZoom(1)}
+                aria-label="Zoom in"
+                style={zoomButtonStyle}
+              >
+                +
+              </button>
+              <button
+                type="button"
+                onClick={() => updateMapZoom(-1)}
+                aria-label="Zoom out"
+                style={{ ...zoomButtonStyle, borderTop: "1px solid rgba(148, 163, 184, 0.32)" }}
+              >
+                -
+              </button>
+            </div>
+
+            {isModePanelOpen ? (
+              <div
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  bottom: 24,
+                  display: "inline-flex",
+                  gap: 4,
+                  padding: 4,
+                  borderRadius: 999,
+                  backgroundColor: "rgba(248, 250, 252, 0.9)",
+                  boxShadow: "0 18px 48px rgba(15, 23, 42, 0.18)",
+                  transform: "translateX(-50%)",
+                  backdropFilter: "blur(10px)"
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setIsPaintMode(false)}
+                  style={{
+                    ...modeButtonStyle,
+                    backgroundColor: isPaintMode ? "transparent" : "#111827",
+                    color: isPaintMode ? "#334155" : "#ffffff"
+                  }}
+                >
+                  View
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!canShowPixelLayer) return;
+                    setIsPaintMode(true);
+                  }}
+                  style={{
+                    ...modeButtonStyle,
+                    backgroundColor: isPaintMode ? "#111827" : "transparent",
+                    color: canShowPixelLayer ? (isPaintMode ? "#ffffff" : "#334155") : "#94a3b8",
+                    cursor: canShowPixelLayer ? "pointer" : "not-allowed"
+                  }}
+                >
+                  Paint
+                </button>
+              </div>
+            ) : null}
+          </>
         }
-        overlay={
+        overlay={(projection) =>
           mapBounds && mapPixelBounds ? (
             <MapChunkOverlay
-              mapBounds={mapBounds}
+              projection={projection}
               zoom={mapViewState.zoom}
               visibleChunks={visibleChunks}
               showGrid={isPaintMode}
@@ -217,4 +266,13 @@ const zoomButtonStyle = {
   cursor: "pointer",
   fontSize: 22,
   lineHeight: 1
+} as const;
+
+const modeButtonStyle = {
+  minWidth: 72,
+  border: 0,
+  borderRadius: 999,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14
 } as const;

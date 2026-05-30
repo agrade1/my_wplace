@@ -73,6 +73,21 @@ export function pixelCoordinateToLngLat(coordinate: PixelCoordinate): LngLatCoor
 }
 
 /**
+ * 전역 픽셀 좌표의 좌상단 모서리를 위도/경도로 변환합니다.
+ *
+ * 청크 캔버스를 지도 위에 배치할 때는 셀 중심이 아니라 모서리 좌표가 필요합니다.
+ */
+export function pixelCoordinateToLngLatCorner(coordinate: PixelCoordinate): LngLatCoordinate {
+  return worldPointToLngLat(
+    {
+      x: coordinate.pixelX * PIXEL_CELL_SIZE_AT_REFERENCE_ZOOM,
+      y: coordinate.pixelY * PIXEL_CELL_SIZE_AT_REFERENCE_ZOOM
+    },
+    PIXEL_REFERENCE_ZOOM
+  );
+}
+
+/**
  * 현재 지도 줌에서 픽셀 셀 하나가 화면에 몇 px로 보여야 하는지 계산합니다.
  *
  * 기준 줌에서는 한 셀이 20px이고, 줌이 1 증가할 때마다 화면 크기는 2배가 됩니다.

@@ -1,21 +1,29 @@
 "use client";
 
+import { useMemo, useRef, useState } from "react";
 import Map, {
+  type MapRef,
   type LngLatBoundsLike,
   type ViewState,
   type ViewStateChangeEvent
 } from "@vis.gl/react-maplibre";
-import type { LngLatBounds } from "@/features/pixel-editor/map-pixel-coordinate";
+import type { LngLatBounds, LngLatCoordinate, ScreenPoint } from "@/features/pixel-editor/map-pixel-coordinate";
 import type { LngLatBounds as MapLibreLngLatBounds } from "maplibre-gl";
+
+export type MapProjection = {
+  projectLngLat: (coordinate: LngLatCoordinate) => ScreenPoint | null;
+  unprojectScreenPoint: (point: ScreenPoint) => LngLatCoordinate | null;
+};
 
 type KoreaMapStageProps = {
   viewState: ViewState;
   onMove: (nextViewState: ViewState) => void;
-  overlay: React.ReactNode;
+  overlay: (projection: MapProjection) => React.ReactNode;
   controls: React.ReactNode;
   showOverlay: boolean;
   overlayHint: string;
   onBoundsChange: (bounds: LngLatBounds) => void;
+  onMapClick: () => void;
 };
 
 const MAP_STYLE = "https://tiles.openfreemap.org/styles/bright";
@@ -31,8 +39,30 @@ export function KoreaMapStage({
   controls,
   showOverlay,
   overlayHint,
-  onBoundsChange
+  onBoundsChange,
+  onMapClick
 }: KoreaMapStageProps) {
+  const mapRef = useRef<MapRef | null>(null);
+  const [isMapReady, setIsMapReady] = useState(false);
+
+  const projection = useMemo<MapProjection>(
+    () => ({
+      projectLngLat: (coordinate) => {
+        const point = mapRef.current?.project([coordinate.lng, coordinate.lat]);
+        if (!point) return null;
+
+        return { x: point.x, y: point.y };
+      },
+      unprojectScreenPoint: (point) => {
+        const lngLat = mapRef.current?.unproject([point.x, point.y]);
+        if (!lngLat) return null;
+
+        return { lng: lngLat.lng, lat: lngLat.lat };
+      }
+    }),
+    []
+  );
+
   const notifyBoundsChange = (event: ViewStateChangeEvent) => {
     onMove(event.viewState);
     onBoundsChange(toLngLatBounds(event.target.getBounds()));
@@ -49,10 +79,13 @@ export function KoreaMapStage({
       }}
     >
       <Map
+        ref={mapRef}
         {...viewState}
         onLoad={(event) => {
+          setIsMapReady(true);
           onBoundsChange(toLngLatBounds(event.target.getBounds()));
         }}
+        onClick={onMapClick}
         onMove={notifyBoundsChange}
         minZoom={5.4}
         maxZoom={18}
@@ -63,8 +96,8 @@ export function KoreaMapStage({
       >
       </Map>
 
-      {showOverlay ? (
-        overlay
+      {showOverlay && isMapReady ? (
+        overlay(projection)
       ) : (
         <div
           style={{

@@ -3,15 +3,15 @@
 import { useEffect, useRef } from "react";
 import {
   getPixelCellScreenSize,
-  pixelCoordinateToScreenRect,
-  screenPointToPixelCoordinate,
-  type LngLatBounds
+  lngLatToPixelCoordinate,
+  pixelCoordinateToLngLatCorner
 } from "@/features/pixel-editor/map-pixel-coordinate";
+import type { MapProjection } from "@/components/map/korea-map-stage";
 import { parsePixelId, PIXEL_CHUNK_SIZE, toPixelId } from "@/features/pixel-editor/pixel-storage";
 import type { ChunkCoordinate } from "@/features/pixel-editor/viewport";
 
 type MapChunkOverlayProps = {
-  mapBounds: LngLatBounds;
+  projection: MapProjection;
   zoom: number;
   visibleChunks: ChunkCoordinate[];
   showGrid: boolean;
@@ -34,7 +34,7 @@ type MapChunkOverlayProps = {
  * 각 청크는 40x40 셀을 담당하고, 클릭/드래그 입력은 wrapper에서 전역 픽셀 좌표로 변환합니다.
  */
 export function MapChunkOverlay({
-  mapBounds,
+  projection,
   zoom,
   visibleChunks,
   showGrid,
@@ -78,14 +78,13 @@ export function MapChunkOverlay({
     if (!overlay) return null;
 
     const rect = overlay.getBoundingClientRect();
-    const coordinate = screenPointToPixelCoordinate(
-      {
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top
-      },
-      mapBounds,
-      zoom
-    );
+    const lngLat = projection.unprojectScreenPoint({
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top
+    });
+    if (!lngLat) return null;
+
+    const coordinate = lngLatToPixelCoordinate(lngLat);
 
     return toPixelId(coordinate.pixelX, coordinate.pixelY);
   };
@@ -97,6 +96,7 @@ export function MapChunkOverlay({
         position: "absolute",
         inset: 0,
         overflow: "hidden",
+        pointerEvents: readOnly ? "none" : "auto",
         cursor: readOnly ? "pointer" : "crosshair"
       }}
       onWheel={(event) => {
@@ -131,7 +131,7 @@ export function MapChunkOverlay({
         <ChunkCanvas
           key={`${chunk.chunkX},${chunk.chunkY}`}
           chunk={chunk}
-          mapBounds={mapBounds}
+          projection={projection}
           zoom={zoom}
           showGrid={showGrid}
           hideEmptyPixels={hideEmptyPixels}
@@ -145,7 +145,7 @@ export function MapChunkOverlay({
 
 type ChunkCanvasProps = {
   chunk: ChunkCoordinate;
-  mapBounds: LngLatBounds;
+  projection: MapProjection;
   zoom: number;
   showGrid: boolean;
   hideEmptyPixels: boolean;
@@ -153,14 +153,24 @@ type ChunkCanvasProps = {
   pixelColors: ReadonlyMap<string, string>;
 };
 
-function ChunkCanvas({ chunk, mapBounds, zoom, showGrid, hideEmptyPixels, selected, pixelColors }: ChunkCanvasProps) {
+function ChunkCanvas({ chunk, projection, zoom, showGrid, hideEmptyPixels, selected, pixelColors }: ChunkCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const cellSize = getPixelCellScreenSize(zoom);
   const chunkStartX = chunk.chunkX * PIXEL_CHUNK_SIZE;
   const chunkStartY = chunk.chunkY * PIXEL_CHUNK_SIZE;
-  const chunkRect = pixelCoordinateToScreenRect({ pixelX: chunkStartX, pixelY: chunkStartY }, mapBounds, zoom);
+  const chunkTopLeft = projection.projectLngLat(pixelCoordinateToLngLatCorner({ pixelX: chunkStartX, pixelY: chunkStartY }));
+  const chunkBottomRight = projection.projectLngLat(
+    pixelCoordinateToLngLatCorner({
+      pixelX: chunkStartX + PIXEL_CHUNK_SIZE,
+      pixelY: chunkStartY + PIXEL_CHUNK_SIZE
+    })
+  );
   const chunkSize = cellSize * PIXEL_CHUNK_SIZE;
   const canvasSize = Math.max(1, Math.ceil(chunkSize));
+  const left = chunkTopLeft?.x ?? 0;
+  const top = chunkTopLeft?.y ?? 0;
+  const width = chunkTopLeft && chunkBottomRight ? chunkBottomRight.x - chunkTopLeft.x : chunkSize;
+  const height = chunkTopLeft && chunkBottomRight ? chunkBottomRight.y - chunkTopLeft.y : chunkSize;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -203,10 +213,10 @@ function ChunkCanvas({ chunk, mapBounds, zoom, showGrid, hideEmptyPixels, select
       height={canvasSize}
       style={{
         position: "absolute",
-        left: chunkRect.x,
-        top: chunkRect.y,
-        width: chunkSize,
-        height: chunkSize,
+        left,
+        top,
+        width,
+        height,
         pointerEvents: "none"
       }}
     />

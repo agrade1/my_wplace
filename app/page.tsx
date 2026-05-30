@@ -4,8 +4,13 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ViewState } from "@vis.gl/react-maplibre";
 import { PixelEditorCanvas } from "@/components/pixel-editor/pixel-editor-canvas";
+import {
+  lngLatBoundsToPixelBounds,
+  type LngLatBounds,
+  type PixelBounds
+} from "@/features/pixel-editor/map-pixel-coordinate";
 import { usePixelEditorCore } from "@/features/pixel-editor/use-pixel-editor-core";
-import { getViewportBounds } from "@/features/pixel-editor/viewport";
+import { getVisibleChunks, getViewportBounds } from "@/features/pixel-editor/viewport";
 
 const KoreaMapStage = dynamic(
   () => import("@/components/map/korea-map-stage").then((module) => module.KoreaMapStage),
@@ -44,6 +49,7 @@ export default function Home() {
   const [isPaintMode, setIsPaintMode] = useState(false);
   const [centerCell] = useState({ x: 24, y: 24 });
   const [mapViewState, setMapViewState] = useState<ViewState>(INITIAL_MAP_VIEW_STATE);
+  const [mapBounds, setMapBounds] = useState<LngLatBounds | null>(null);
   const zoomAnimationRef = useRef<number | null>(null);
   const canShowPixelLayer = mapViewState.zoom > PIXEL_LAYER_ZOOM_THRESHOLD;
 
@@ -51,6 +57,14 @@ export default function Home() {
     () => getViewportBounds(centerCell.x, centerCell.y, GRID_SIZE, GRID_SIZE),
     [centerCell.x, centerCell.y]
   );
+  const mapPixelBounds = useMemo(() => {
+    if (!mapBounds) return null;
+    return lngLatBoundsToPixelBounds(mapBounds);
+  }, [mapBounds]);
+  const visibleChunks = useMemo(() => {
+    if (!mapPixelBounds) return [];
+    return getVisibleChunks(pixelBoundsToViewportBounds(mapPixelBounds));
+  }, [mapPixelBounds]);
   useEffect(() => {
     return () => {
       if (zoomAnimationRef.current !== null) {
@@ -100,6 +114,7 @@ export default function Home() {
       <KoreaMapStage
         viewState={mapViewState}
         onMove={setMapViewState}
+        onBoundsChange={setMapBounds}
         showOverlay={canShowPixelLayer}
         overlayHint={`Zoom above ${PIXEL_LAYER_ZOOM_THRESHOLD.toFixed(2)}`}
         controls={
@@ -160,8 +175,44 @@ export default function Home() {
           />
         }
       />
+      <div
+        style={{
+          position: "absolute",
+          right: 16,
+          bottom: 16,
+          maxWidth: 360,
+          padding: "10px 12px",
+          borderRadius: 8,
+          backgroundColor: "rgba(248, 250, 252, 0.86)",
+          color: "#334155",
+          fontSize: 12,
+          lineHeight: 1.5,
+          boxShadow: "0 14px 36px rgba(15, 23, 42, 0.14)",
+          backdropFilter: "blur(10px)"
+        }}
+      >
+        {mapPixelBounds ? (
+          <>
+            <div>
+              pixels {mapPixelBounds.startX},{mapPixelBounds.startY} to {mapPixelBounds.endX},{mapPixelBounds.endY}
+            </div>
+            <div>chunks {visibleChunks.map(({ chunkX, chunkY }) => `(${chunkX},${chunkY})`).join(", ")}</div>
+          </>
+        ) : (
+          "loading viewport"
+        )}
+      </div>
     </main>
   );
+}
+
+function pixelBoundsToViewportBounds(bounds: PixelBounds) {
+  return {
+    startX: bounds.startX,
+    startY: bounds.startY,
+    endX: bounds.endX,
+    endY: bounds.endY
+  };
 }
 
 const zoomButtonStyle = {

@@ -5,6 +5,8 @@ import Map, {
   type ViewState,
   type ViewStateChangeEvent
 } from "@vis.gl/react-maplibre";
+import type { LngLatBounds } from "@/features/pixel-editor/map-pixel-coordinate";
+import type { LngLatBounds as MapLibreLngLatBounds } from "maplibre-gl";
 
 type KoreaMapStageProps = {
   viewState: ViewState;
@@ -13,6 +15,7 @@ type KoreaMapStageProps = {
   controls: React.ReactNode;
   showOverlay: boolean;
   overlayHint: string;
+  onBoundsChange: (bounds: LngLatBounds) => void;
 };
 
 const MAP_STYLE = "https://tiles.openfreemap.org/styles/bright";
@@ -27,8 +30,14 @@ export function KoreaMapStage({
   overlay,
   controls,
   showOverlay,
-  overlayHint
+  overlayHint,
+  onBoundsChange
 }: KoreaMapStageProps) {
+  const notifyBoundsChange = (event: ViewStateChangeEvent) => {
+    onMove(event.viewState);
+    onBoundsChange(toLngLatBounds(event.target.getBounds()));
+  };
+
   return (
     <div
       style={{
@@ -41,7 +50,10 @@ export function KoreaMapStage({
     >
       <Map
         {...viewState}
-        onMove={(event: ViewStateChangeEvent) => onMove(event.viewState)}
+        onLoad={(event) => {
+          onBoundsChange(toLngLatBounds(event.target.getBounds()));
+        }}
+        onMove={notifyBoundsChange}
         minZoom={5.4}
         maxZoom={18}
         maxBounds={KOREA_BOUNDS}
@@ -96,4 +108,16 @@ export function KoreaMapStage({
       </div>
     </div>
   );
+}
+
+function toLngLatBounds(bounds: MapLibreLngLatBounds): LngLatBounds {
+  const west = bounds.getWest();
+  const east = bounds.getEast();
+
+  return {
+    west: Math.min(west, east),
+    south: bounds.getSouth(),
+    east: Math.max(west, east),
+    north: bounds.getNorth()
+  };
 }

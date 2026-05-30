@@ -32,7 +32,8 @@ const KoreaMapStage = dynamic(
   }
 );
 
-const PIXEL_LAYER_ZOOM_THRESHOLD = 13;
+const PIXEL_VIEW_ZOOM_THRESHOLD = 9.5;
+const PIXEL_PAINT_ZOOM_THRESHOLD = 13;
 const INITIAL_MAP_VIEW_STATE: ViewState = {
   longitude: 127.8,
   latitude: 36.2,
@@ -49,17 +50,25 @@ export default function Home() {
   const [mapViewState, setMapViewState] = useState<ViewState>(INITIAL_MAP_VIEW_STATE);
   const [mapBounds, setMapBounds] = useState<LngLatBounds | null>(null);
   const zoomAnimationRef = useRef<number | null>(null);
-  const canShowPixelLayer = mapViewState.zoom > PIXEL_LAYER_ZOOM_THRESHOLD;
+  const canViewPixelLayer = mapViewState.zoom >= PIXEL_VIEW_ZOOM_THRESHOLD;
+  const canPaintPixelLayer = mapViewState.zoom >= PIXEL_PAINT_ZOOM_THRESHOLD;
 
   const mapPixelBounds = useMemo(() => {
     if (!mapBounds) return null;
     return lngLatBoundsToPixelBounds(mapBounds);
   }, [mapBounds]);
-  const canRenderChunkOverlay = canShowPixelLayer && mapBounds !== null && mapPixelBounds !== null;
+  const canRenderChunkOverlay = canViewPixelLayer && mapBounds !== null && mapPixelBounds !== null;
   const visibleChunks = useMemo(() => {
     if (!mapPixelBounds) return [];
     return getVisibleChunks(pixelBoundsToViewportBounds(mapPixelBounds));
   }, [mapPixelBounds]);
+
+  useEffect(() => {
+    if (!canPaintPixelLayer) {
+      setIsPaintMode(false);
+    }
+  }, [canPaintPixelLayer]);
+
   useEffect(() => {
     return () => {
       if (zoomAnimationRef.current !== null) {
@@ -111,7 +120,7 @@ export default function Home() {
         onMove={setMapViewState}
         onBoundsChange={setMapBounds}
         showOverlay={canRenderChunkOverlay}
-        overlayHint={`Zoom above ${PIXEL_LAYER_ZOOM_THRESHOLD.toFixed(2)}`}
+        overlayHint={`Zoom above ${PIXEL_VIEW_ZOOM_THRESHOLD.toFixed(2)}`}
         onMapClick={() => setIsModePanelOpen(true)}
         controls={
           <>
@@ -176,14 +185,14 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (!canShowPixelLayer) return;
+                    if (!canPaintPixelLayer) return;
                     setIsPaintMode(true);
                   }}
                   style={{
                     ...modeButtonStyle,
                     backgroundColor: isPaintMode ? "#111827" : "transparent",
-                    color: canShowPixelLayer ? (isPaintMode ? "#ffffff" : "#334155") : "#94a3b8",
-                    cursor: canShowPixelLayer ? "pointer" : "not-allowed"
+                    color: canPaintPixelLayer ? (isPaintMode ? "#ffffff" : "#334155") : "#94a3b8",
+                    cursor: canPaintPixelLayer ? "pointer" : "not-allowed"
                   }}
                 >
                   Paint
@@ -198,9 +207,9 @@ export default function Home() {
               projection={projection}
               zoom={mapViewState.zoom}
               visibleChunks={visibleChunks}
-              showGrid={isPaintMode}
+              showGrid={isPaintMode && canPaintPixelLayer}
               hideEmptyPixels={!isPaintMode}
-              readOnly={!isPaintMode}
+              readOnly={!isPaintMode || !canPaintPixelLayer}
               selected={core.selected}
               pixelColors={core.pixelColors}
               onRequestPaintMode={(id, button) => {

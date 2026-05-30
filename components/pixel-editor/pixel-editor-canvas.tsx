@@ -5,6 +5,8 @@ import { useEffect, useMemo, useRef } from "react";
 type PixelEditorCanvasProps = {
   gridSize: number;
   cellSize: number;
+  viewportStartX: number;
+  viewportStartY: number;
   showGrid: boolean;
   hideEmptyPixels: boolean;
   readOnly: boolean;
@@ -28,6 +30,8 @@ function toPixelId(x: number, y: number) {
 export function PixelEditorCanvas({
   gridSize,
   cellSize,
+  viewportStartX,
+  viewportStartY,
   showGrid,
   hideEmptyPixels,
   readOnly,
@@ -57,7 +61,9 @@ export function PixelEditorCanvas({
 
     for (let y = 0; y < gridSize; y += 1) {
       for (let x = 0; x < gridSize; x += 1) {
-        const id = toPixelId(x, y);
+        const pixelX = viewportStartX + x;
+        const pixelY = viewportStartY + y;
+        const id = toPixelId(pixelX, pixelY);
         const isPainted = pixelColors.has(id);
         const color = isPainted ? pixelColors.get(id) ?? "#ffffff" : hideEmptyPixels ? "transparent" : "#ffffff";
         const left = x * cellSize;
@@ -84,7 +90,7 @@ export function PixelEditorCanvas({
         }
       }
     }
-  }, [cellSize, gridSize, hideEmptyPixels, pixelColors, selected, showGrid]);
+  }, [cellSize, gridSize, hideEmptyPixels, pixelColors, selected, showGrid, viewportStartX, viewportStartY]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -119,7 +125,7 @@ export function PixelEditorCanvas({
       return null;
     }
 
-    return toPixelId(x, y);
+    return toPixelId(viewportStartX + x, viewportStartY + y);
   };
 
   return (

@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import type { MapProjection } from "@/components/map/korea-map-stage";
 import {
   getPixelCellScreenSize,
   lngLatToPixelCoordinate,
   pixelCoordinateToLngLatCorner
 } from "@/features/pixel-editor/map-pixel-coordinate";
-import type { MapProjection } from "@/components/map/korea-map-stage";
 import { parsePixelId, PIXEL_CHUNK_SIZE, toPixelId } from "@/features/pixel-editor/pixel-storage";
 import type { ChunkCoordinate } from "@/features/pixel-editor/viewport";
 
@@ -135,6 +135,7 @@ export function MapChunkOverlay({
           zoom={zoom}
           showGrid={showGrid}
           hideEmptyPixels={hideEmptyPixels}
+          readOnly={readOnly}
           selected={selected}
           pixelColors={pixelColors}
         />
@@ -149,11 +150,21 @@ type ChunkCanvasProps = {
   zoom: number;
   showGrid: boolean;
   hideEmptyPixels: boolean;
+  readOnly: boolean;
   selected: ReadonlySet<string>;
   pixelColors: ReadonlyMap<string, string>;
 };
 
-function ChunkCanvas({ chunk, projection, zoom, showGrid, hideEmptyPixels, selected, pixelColors }: ChunkCanvasProps) {
+function ChunkCanvas({
+  chunk,
+  projection,
+  zoom,
+  showGrid,
+  hideEmptyPixels,
+  readOnly,
+  selected,
+  pixelColors
+}: ChunkCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const cellSize = getPixelCellScreenSize(zoom);
   const chunkStartX = chunk.chunkX * PIXEL_CHUNK_SIZE;
@@ -179,6 +190,7 @@ function ChunkCanvas({ chunk, projection, zoom, showGrid, hideEmptyPixels, selec
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (!hideEmptyPixels) {
@@ -186,7 +198,7 @@ function ChunkCanvas({ chunk, projection, zoom, showGrid, hideEmptyPixels, selec
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
-    if (showGrid && cellSize >= 4) {
+    if (!readOnly && showGrid && cellSize >= 4) {
       drawChunkGrid(ctx, cellSize, canvas.width, canvas.height);
     }
 
@@ -200,11 +212,13 @@ function ChunkCanvas({ chunk, projection, zoom, showGrid, hideEmptyPixels, selec
       ctx.fillStyle = color;
       ctx.fillRect(localX, localY, cellSize, cellSize);
 
+      if (readOnly) return;
+
       ctx.strokeStyle = selected.has(pixelId) ? "#111111" : "#0f766e";
       ctx.lineWidth = selected.has(pixelId) ? 2 : 1.5;
       ctx.strokeRect(localX + 1, localY + 1, Math.max(0, cellSize - 2), Math.max(0, cellSize - 2));
     });
-  }, [cellSize, chunkStartX, chunkStartY, hideEmptyPixels, pixelColors, selected, showGrid]);
+  }, [cellSize, chunkStartX, chunkStartY, hideEmptyPixels, pixelColors, readOnly, selected, showGrid]);
 
   return (
     <canvas

@@ -17,7 +17,6 @@ type MapChunkOverlayProps = {
   showGrid: boolean;
   hideEmptyPixels: boolean;
   readOnly: boolean;
-  selected: ReadonlySet<string>;
   pixelColors: ReadonlyMap<string, string>;
   onRequestPaintMode: (id: string, button: number) => void;
   onPixelPointerDown: (id: string, button: number) => void;
@@ -40,7 +39,6 @@ export function MapChunkOverlay({
   showGrid,
   hideEmptyPixels,
   readOnly,
-  selected,
   pixelColors,
   onRequestPaintMode,
   onPixelPointerDown,
@@ -136,7 +134,6 @@ export function MapChunkOverlay({
           showGrid={showGrid}
           hideEmptyPixels={hideEmptyPixels}
           readOnly={readOnly}
-          selected={selected}
           pixelColors={pixelColors}
         />
       ))}
@@ -151,7 +148,6 @@ type ChunkCanvasProps = {
   showGrid: boolean;
   hideEmptyPixels: boolean;
   readOnly: boolean;
-  selected: ReadonlySet<string>;
   pixelColors: ReadonlyMap<string, string>;
 };
 
@@ -162,7 +158,6 @@ function ChunkCanvas({
   showGrid,
   hideEmptyPixels,
   readOnly,
-  selected,
   pixelColors
 }: ChunkCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -211,14 +206,8 @@ function ChunkCanvas({
 
       ctx.fillStyle = color;
       ctx.fillRect(localX, localY, cellSize, cellSize);
-
-      if (readOnly) return;
-
-      ctx.strokeStyle = selected.has(pixelId) ? "#111111" : "#0f766e";
-      ctx.lineWidth = selected.has(pixelId) ? 2 : 1.5;
-      ctx.strokeRect(localX + 1, localY + 1, Math.max(0, cellSize - 2), Math.max(0, cellSize - 2));
     });
-  }, [cellSize, chunkStartX, chunkStartY, hideEmptyPixels, pixelColors, readOnly, selected, showGrid]);
+  }, [cellSize, chunkStartX, chunkStartY, hideEmptyPixels, pixelColors, readOnly, showGrid]);
 
   return (
     <canvas

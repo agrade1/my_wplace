@@ -210,7 +210,6 @@ export default function Home() {
               showGrid={isPaintMode && canPaintPixelLayer}
               hideEmptyPixels={!isPaintMode}
               readOnly={!isPaintMode || !canPaintPixelLayer}
-              selected={core.selected}
               pixelColors={core.pixelColors}
               onRequestPaintMode={(id, button) => {
                 setIsPaintMode(true);

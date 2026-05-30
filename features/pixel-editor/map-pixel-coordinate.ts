@@ -13,6 +13,15 @@ export type PixelCoordinate = {
   pixelY: number;
 };
 
+export type ScreenPoint = {
+  x: number;
+  y: number;
+};
+
+export type ScreenRect = ScreenPoint & {
+  size: number;
+};
+
 export type LngLatBounds = {
   west: number;
   south: number;
@@ -70,6 +79,45 @@ export function pixelCoordinateToLngLat(coordinate: PixelCoordinate): LngLatCoor
  */
 export function getPixelCellScreenSize(zoom: number) {
   return PIXEL_CELL_SIZE_AT_REFERENCE_ZOOM * 2 ** (zoom - PIXEL_REFERENCE_ZOOM);
+}
+
+/**
+ * 지도 화면의 마우스 위치를 전역 픽셀 좌표로 변환합니다.
+ *
+ * 현재 지도 viewport의 북서쪽을 화면 원점으로 보고, 화면 px 이동량을 기준 줌의 Web Mercator 좌표로 환산합니다.
+ */
+export function screenPointToPixelCoordinate(point: ScreenPoint, bounds: LngLatBounds, zoom: number): PixelCoordinate {
+  const topLeftWorldPoint = lngLatToWorldPoint({ lng: bounds.west, lat: bounds.north }, zoom);
+  const referenceScale = 2 ** (PIXEL_REFERENCE_ZOOM - zoom);
+  const referenceWorldPoint = {
+    x: (topLeftWorldPoint.x + point.x) * referenceScale,
+    y: (topLeftWorldPoint.y + point.y) * referenceScale
+  };
+
+  return {
+    pixelX: Math.floor(referenceWorldPoint.x / PIXEL_CELL_SIZE_AT_REFERENCE_ZOOM),
+    pixelY: Math.floor(referenceWorldPoint.y / PIXEL_CELL_SIZE_AT_REFERENCE_ZOOM)
+  };
+}
+
+/**
+ * 전역 픽셀 좌표가 현재 지도 화면에서 차지하는 사각형 위치를 계산합니다.
+ *
+ * 청크 캔버스를 지도 위에 배치할 때, 청크의 시작 픽셀 좌표를 화면 좌표로 투영하는 데 사용합니다.
+ */
+export function pixelCoordinateToScreenRect(
+  coordinate: PixelCoordinate,
+  bounds: LngLatBounds,
+  zoom: number
+): ScreenRect {
+  const topLeftWorldPoint = lngLatToWorldPoint({ lng: bounds.west, lat: bounds.north }, zoom);
+  const currentScale = 2 ** (zoom - PIXEL_REFERENCE_ZOOM);
+
+  return {
+    x: coordinate.pixelX * PIXEL_CELL_SIZE_AT_REFERENCE_ZOOM * currentScale - topLeftWorldPoint.x,
+    y: coordinate.pixelY * PIXEL_CELL_SIZE_AT_REFERENCE_ZOOM * currentScale - topLeftWorldPoint.y,
+    size: getPixelCellScreenSize(zoom)
+  };
 }
 
 /**

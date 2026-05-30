@@ -63,33 +63,20 @@ export function KoreaMapStage({
       >
       </Map>
 
-      {controls}
-
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          display: "grid",
-          alignItems: "center",
-          justifyItems: "center",
-          pointerEvents: "none",
-          padding: 24
-        }}
-      >
-        {showOverlay ? (
-          <div
-            style={{
-              pointerEvents: "auto",
-              padding: 16,
-              borderRadius: 20,
-              backgroundColor: "rgba(248, 250, 252, 0.84)",
-              boxShadow: "0 24px 80px rgba(15, 23, 42, 0.18)",
-              backdropFilter: "blur(10px)"
-            }}
-          >
-            {overlay}
-          </div>
-        ) : (
+      {showOverlay ? (
+        overlay
+      ) : (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "grid",
+            alignItems: "center",
+            justifyItems: "center",
+            pointerEvents: "none",
+            padding: 24
+          }}
+        >
           <div
             style={{
               maxWidth: 320,
@@ -104,8 +91,10 @@ export function KoreaMapStage({
           >
             {overlayHint}
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {controls}
     </div>
   );
 }

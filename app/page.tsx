@@ -3,14 +3,14 @@
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ViewState } from "@vis.gl/react-maplibre";
-import { PixelEditorCanvas } from "@/components/pixel-editor/pixel-editor-canvas";
+import { MapChunkOverlay } from "@/components/pixel-editor/map-chunk-overlay";
 import {
   lngLatBoundsToPixelBounds,
   type LngLatBounds,
   type PixelBounds
 } from "@/features/pixel-editor/map-pixel-coordinate";
 import { usePixelEditorCore } from "@/features/pixel-editor/use-pixel-editor-core";
-import { getVisibleChunks, getViewportBounds } from "@/features/pixel-editor/viewport";
+import { getVisibleChunks } from "@/features/pixel-editor/viewport";
 
 const KoreaMapStage = dynamic(
   () => import("@/components/map/korea-map-stage").then((module) => module.KoreaMapStage),
@@ -32,8 +32,6 @@ const KoreaMapStage = dynamic(
   }
 );
 
-const GRID_SIZE = 32;
-const CELL_SIZE = 16;
 const PIXEL_LAYER_ZOOM_THRESHOLD = 13;
 const INITIAL_MAP_VIEW_STATE: ViewState = {
   longitude: 127.8,
@@ -47,20 +45,16 @@ const INITIAL_MAP_VIEW_STATE: ViewState = {
 export default function Home() {
   const core = usePixelEditorCore();
   const [isPaintMode, setIsPaintMode] = useState(false);
-  const [centerCell] = useState({ x: 24, y: 24 });
   const [mapViewState, setMapViewState] = useState<ViewState>(INITIAL_MAP_VIEW_STATE);
   const [mapBounds, setMapBounds] = useState<LngLatBounds | null>(null);
   const zoomAnimationRef = useRef<number | null>(null);
   const canShowPixelLayer = mapViewState.zoom > PIXEL_LAYER_ZOOM_THRESHOLD;
 
-  const viewportBounds = useMemo(
-    () => getViewportBounds(centerCell.x, centerCell.y, GRID_SIZE, GRID_SIZE),
-    [centerCell.x, centerCell.y]
-  );
   const mapPixelBounds = useMemo(() => {
     if (!mapBounds) return null;
     return lngLatBoundsToPixelBounds(mapBounds);
   }, [mapBounds]);
+  const canRenderChunkOverlay = canShowPixelLayer && mapBounds !== null && mapPixelBounds !== null;
   const visibleChunks = useMemo(() => {
     if (!mapPixelBounds) return [];
     return getVisibleChunks(pixelBoundsToViewportBounds(mapPixelBounds));
@@ -115,7 +109,7 @@ export default function Home() {
         viewState={mapViewState}
         onMove={setMapViewState}
         onBoundsChange={setMapBounds}
-        showOverlay={canShowPixelLayer}
+        showOverlay={canRenderChunkOverlay}
         overlayHint={`Zoom above ${PIXEL_LAYER_ZOOM_THRESHOLD.toFixed(2)}`}
         controls={
           <div
@@ -150,29 +144,28 @@ export default function Home() {
           </div>
         }
         overlay={
-          <PixelEditorCanvas
-            gridSize={GRID_SIZE}
-            cellSize={CELL_SIZE}
-            viewportStartX={viewportBounds.startX}
-            viewportStartY={viewportBounds.startY}
-            showGrid={isPaintMode}
-            hideEmptyPixels={!isPaintMode}
-            readOnly={!isPaintMode}
-            palette={core.palette}
-            activeColor={core.activeColor}
-            selected={core.selected}
-            pixelColors={core.pixelColors}
-            onRequestPaintMode={(id, button) => {
-              setIsPaintMode(true);
-              core.onPixelMouseDown(id, button);
-            }}
-            onSelectColor={core.onSelectColor}
-            onPixelPointerDown={core.onPixelMouseDown}
-            onPixelPointerMove={core.onPixelMouseEnter}
-            onPointerEnd={core.onPointerEnd}
-            onSpaceSelectStart={core.onSpaceSelectStart}
-            onSpaceSelectEnd={core.onSpaceSelectEnd}
-          />
+          mapBounds && mapPixelBounds ? (
+            <MapChunkOverlay
+              mapBounds={mapBounds}
+              zoom={mapViewState.zoom}
+              visibleChunks={visibleChunks}
+              showGrid={isPaintMode}
+              hideEmptyPixels={!isPaintMode}
+              readOnly={!isPaintMode}
+              selected={core.selected}
+              pixelColors={core.pixelColors}
+              onRequestPaintMode={(id, button) => {
+                setIsPaintMode(true);
+                core.onPixelMouseDown(id, button);
+              }}
+              onPixelPointerDown={core.onPixelMouseDown}
+              onPixelPointerMove={core.onPixelMouseEnter}
+              onPointerEnd={core.onPointerEnd}
+              onSpaceSelectStart={core.onSpaceSelectStart}
+              onSpaceSelectEnd={core.onSpaceSelectEnd}
+              onWheelZoom={updateMapZoom}
+            />
+          ) : null
         }
       />
       <div

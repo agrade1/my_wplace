@@ -1,12 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { MapProjection } from "@/components/map/korea-map-stage";
-import {
-  getPixelCellScreenSize,
-  lngLatToPixelCoordinate,
-  pixelCoordinateToLngLatCorner
-} from "@/features/pixel-editor/map-pixel-coordinate";
+import { lngLatToPixelCoordinate, pixelCoordinateToLngLatCorner } from "@/features/pixel-editor/map-pixel-coordinate";
 import { parsePixelId, PIXEL_CHUNK_SIZE, toPixelId } from "@/features/pixel-editor/pixel-storage";
 import type { ChunkCoordinate } from "@/features/pixel-editor/viewport";
 
@@ -27,10 +23,15 @@ type MapChunkOverlayProps = {
   onWheelZoom: (delta: number) => void;
 };
 
+type CanvasSize = {
+  width: number;
+  height: number;
+};
+
 /**
- * 지도 viewport 위에 현재 보이는 청크 캔버스들을 배치합니다.
+ * 지도 viewport 위에 단일 캔버스를 올리고, 현재 보이는 청크 데이터만 그립니다.
  *
- * 각 청크는 40x40 셀을 담당하고, 클릭/드래그 입력은 wrapper에서 전역 픽셀 좌표로 변환합니다.
+ * 데이터 경계는 청크 단위로 유지하지만 렌더링은 하나의 캔버스에서 처리해 청크 사이 이음새를 줄입니다.
  */
 export function MapChunkOverlay({
   projection,
@@ -48,7 +49,32 @@ export function MapChunkOverlay({
   onSpaceSelectEnd,
   onWheelZoom
 }: MapChunkOverlayProps) {
-  const overlayRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [canvasSize, setCanvasSize] = useState<CanvasSize>({ width: 0, height: 0 });
+  const visibleChunkKeys = useMemo(
+    () => new Set(visibleChunks.map((chunk) => toChunkKey(chunk.chunkX, chunk.chunkY))),
+    [visibleChunks]
+  );
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const resizeObserver = new ResizeObserver(([entry]) => {
+      if (!entry) return;
+
+      setCanvasSize({
+        width: Math.floor(entry.contentRect.width),
+        height: Math.floor(entry.contentRect.height)
+      });
+    });
+
+    resizeObserver.observe(canvas);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -71,11 +97,48 @@ export function MapChunkOverlay({
     };
   }, [onSpaceSelectEnd, onSpaceSelectStart]);
 
-  const getPixelIdFromEvent = (event: React.MouseEvent<HTMLDivElement>) => {
-    const overlay = overlayRef.current;
-    if (!overlay) return null;
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || canvasSize.width === 0 || canvasSize.height === 0) return;
 
-    const rect = overlay.getBoundingClientRect();
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const ratio = window.devicePixelRatio || 1;
+    canvas.width = Math.floor(canvasSize.width * ratio);
+    canvas.height = Math.floor(canvasSize.height * ratio);
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, canvasSize.width, canvasSize.height);
+
+    if (!hideEmptyPixels) {
+      ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+      ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+    }
+
+    drawPaintedPixels(ctx, projection, pixelColors, visibleChunkKeys);
+
+    if (!readOnly && showGrid) {
+      drawVisibleChunkGrid(ctx, projection, visibleChunks);
+    }
+  }, [
+    canvasSize.height,
+    canvasSize.width,
+    hideEmptyPixels,
+    pixelColors,
+    projection,
+    readOnly,
+    showGrid,
+    visibleChunkKeys,
+    visibleChunks,
+    zoom
+  ]);
+
+  const getPixelIdFromEvent = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+
+    const rect = canvas.getBoundingClientRect();
     const lngLat = projection.unprojectScreenPoint({
       x: event.clientX - rect.left,
       y: event.clientY - rect.top
@@ -88,12 +151,13 @@ export function MapChunkOverlay({
   };
 
   return (
-    <div
-      ref={overlayRef}
+    <canvas
+      ref={canvasRef}
       style={{
         position: "absolute",
         inset: 0,
-        overflow: "hidden",
+        width: "100%",
+        height: "100%",
         pointerEvents: readOnly ? "none" : "auto",
         cursor: readOnly ? "pointer" : "crosshair"
       }}
@@ -124,132 +188,79 @@ export function MapChunkOverlay({
         onPointerEnd();
         onSpaceSelectEnd();
       }}
-    >
-      {visibleChunks.map((chunk) => (
-        <ChunkCanvas
-          key={`${chunk.chunkX},${chunk.chunkY}`}
-          chunk={chunk}
-          projection={projection}
-          zoom={zoom}
-          showGrid={showGrid}
-          hideEmptyPixels={hideEmptyPixels}
-          readOnly={readOnly}
-          pixelColors={pixelColors}
-        />
-      ))}
-    </div>
-  );
-}
-
-type ChunkCanvasProps = {
-  chunk: ChunkCoordinate;
-  projection: MapProjection;
-  zoom: number;
-  showGrid: boolean;
-  hideEmptyPixels: boolean;
-  readOnly: boolean;
-  pixelColors: ReadonlyMap<string, string>;
-};
-
-function ChunkCanvas({
-  chunk,
-  projection,
-  zoom,
-  showGrid,
-  hideEmptyPixels,
-  readOnly,
-  pixelColors
-}: ChunkCanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const cellSize = getPixelCellScreenSize(zoom);
-  const chunkStartX = chunk.chunkX * PIXEL_CHUNK_SIZE;
-  const chunkStartY = chunk.chunkY * PIXEL_CHUNK_SIZE;
-  const chunkTopLeft = projection.projectLngLat(pixelCoordinateToLngLatCorner({ pixelX: chunkStartX, pixelY: chunkStartY }));
-  const chunkBottomRight = projection.projectLngLat(
-    pixelCoordinateToLngLatCorner({
-      pixelX: chunkStartX + PIXEL_CHUNK_SIZE,
-      pixelY: chunkStartY + PIXEL_CHUNK_SIZE
-    })
-  );
-  const chunkSize = cellSize * PIXEL_CHUNK_SIZE;
-  const canvasSize = Math.max(1, Math.ceil(chunkSize));
-  const left = chunkTopLeft?.x ?? 0;
-  const top = chunkTopLeft?.y ?? 0;
-  const width = chunkTopLeft && chunkBottomRight ? chunkBottomRight.x - chunkTopLeft.x : chunkSize;
-  const height = chunkTopLeft && chunkBottomRight ? chunkBottomRight.y - chunkTopLeft.y : chunkSize;
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    ctx.imageSmoothingEnabled = false;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    if (!hideEmptyPixels) {
-      ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-
-    if (!readOnly && showGrid && cellSize >= 4) {
-      drawChunkGrid(ctx, cellSize, canvas.width, canvas.height);
-    }
-
-    pixelColors.forEach((color, pixelId) => {
-      const { pixelX, pixelY } = parsePixelId(pixelId);
-      if (!isPixelInsideChunk(pixelX, pixelY, chunkStartX, chunkStartY)) return;
-
-      const localX = (pixelX - chunkStartX) * cellSize;
-      const localY = (pixelY - chunkStartY) * cellSize;
-
-      ctx.fillStyle = color;
-      ctx.fillRect(Math.floor(localX), Math.floor(localY), Math.ceil(cellSize), Math.ceil(cellSize));
-    });
-  }, [cellSize, chunkStartX, chunkStartY, hideEmptyPixels, pixelColors, readOnly, showGrid]);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      width={canvasSize}
-      height={canvasSize}
-      style={{
-        position: "absolute",
-        left,
-        top,
-        width,
-        height,
-        pointerEvents: "none"
-      }}
     />
   );
 }
 
-function drawChunkGrid(ctx: CanvasRenderingContext2D, cellSize: number, width: number, height: number) {
+function drawPaintedPixels(
+  ctx: CanvasRenderingContext2D,
+  projection: MapProjection,
+  pixelColors: ReadonlyMap<string, string>,
+  visibleChunkKeys: ReadonlySet<string>
+) {
+  pixelColors.forEach((color, pixelId) => {
+    const { pixelX, pixelY } = parsePixelId(pixelId);
+    const chunkX = Math.floor(pixelX / PIXEL_CHUNK_SIZE);
+    const chunkY = Math.floor(pixelY / PIXEL_CHUNK_SIZE);
+
+    if (!visibleChunkKeys.has(toChunkKey(chunkX, chunkY))) return;
+
+    const rect = getPixelScreenRect(projection, pixelX, pixelY);
+    if (!rect) return;
+
+    ctx.fillStyle = color;
+    ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+  });
+}
+
+function drawVisibleChunkGrid(ctx: CanvasRenderingContext2D, projection: MapProjection, visibleChunks: ChunkCoordinate[]) {
   ctx.strokeStyle = "rgba(15, 23, 42, 0.34)";
   ctx.lineWidth = 1;
 
-  for (let index = 0; index <= PIXEL_CHUNK_SIZE; index += 1) {
-    const offset = index * cellSize;
+  visibleChunks.forEach((chunk) => {
+    const startX = chunk.chunkX * PIXEL_CHUNK_SIZE;
+    const startY = chunk.chunkY * PIXEL_CHUNK_SIZE;
 
-    ctx.beginPath();
-    ctx.moveTo(offset, 0);
-    ctx.lineTo(offset, height);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(0, offset);
-    ctx.lineTo(width, offset);
-    ctx.stroke();
-  }
+    for (let index = 0; index <= PIXEL_CHUNK_SIZE; index += 1) {
+      drawGridLine(ctx, projection, startX + index, startY, startX + index, startY + PIXEL_CHUNK_SIZE);
+      drawGridLine(ctx, projection, startX, startY + index, startX + PIXEL_CHUNK_SIZE, startY + index);
+    }
+  });
 }
 
-function isPixelInsideChunk(pixelX: number, pixelY: number, chunkStartX: number, chunkStartY: number) {
-  return (
-    pixelX >= chunkStartX &&
-    pixelX < chunkStartX + PIXEL_CHUNK_SIZE &&
-    pixelY >= chunkStartY &&
-    pixelY < chunkStartY + PIXEL_CHUNK_SIZE
-  );
+function drawGridLine(
+  ctx: CanvasRenderingContext2D,
+  projection: MapProjection,
+  startPixelX: number,
+  startPixelY: number,
+  endPixelX: number,
+  endPixelY: number
+) {
+  const start = projection.projectLngLat(pixelCoordinateToLngLatCorner({ pixelX: startPixelX, pixelY: startPixelY }));
+  const end = projection.projectLngLat(pixelCoordinateToLngLatCorner({ pixelX: endPixelX, pixelY: endPixelY }));
+
+  if (!start || !end) return;
+
+  ctx.beginPath();
+  ctx.moveTo(Math.round(start.x) + 0.5, Math.round(start.y) + 0.5);
+  ctx.lineTo(Math.round(end.x) + 0.5, Math.round(end.y) + 0.5);
+  ctx.stroke();
+}
+
+function getPixelScreenRect(projection: MapProjection, pixelX: number, pixelY: number) {
+  const topLeft = projection.projectLngLat(pixelCoordinateToLngLatCorner({ pixelX, pixelY }));
+  const bottomRight = projection.projectLngLat(pixelCoordinateToLngLatCorner({ pixelX: pixelX + 1, pixelY: pixelY + 1 }));
+
+  if (!topLeft || !bottomRight) return null;
+
+  return {
+    x: Math.floor(topLeft.x),
+    y: Math.floor(topLeft.y),
+    width: Math.max(1, Math.ceil(bottomRight.x - topLeft.x)),
+    height: Math.max(1, Math.ceil(bottomRight.y - topLeft.y))
+  };
+}
+
+function toChunkKey(chunkX: number, chunkY: number) {
+  return `${chunkX},${chunkY}`;
 }

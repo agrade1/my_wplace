@@ -32,8 +32,8 @@ const KoreaMapStage = dynamic(
   }
 );
 
-const PIXEL_VIEW_ZOOM_THRESHOLD = 9.5;
-const PIXEL_PAINT_ZOOM_THRESHOLD = 13;
+const PIXEL_VIEW_ZOOM_THRESHOLD = 4;
+const PIXEL_PAINT_ZOOM_THRESHOLD = 4;
 const INITIAL_MAP_VIEW_STATE: ViewState = {
   longitude: 127.8,
   latitude: 36.2,
@@ -83,7 +83,7 @@ export default function Home() {
     }
 
     const startZoom = mapViewState.zoom;
-    const targetZoom = Math.min(18, Math.max(5.4, Number((startZoom + delta).toFixed(2))));
+    const targetZoom = Math.min(18, Math.max(4, Number((startZoom + delta).toFixed(2))));
     const durationMs = 220;
     const startTime = performance.now();
 

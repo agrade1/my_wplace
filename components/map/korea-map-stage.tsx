@@ -87,7 +87,7 @@ export function KoreaMapStage({
         }}
         onClick={onMapClick}
         onMove={notifyBoundsChange}
-        minZoom={5.4}
+        minZoom={4}
         maxZoom={18}
         maxBounds={KOREA_BOUNDS}
         mapStyle={MAP_STYLE}

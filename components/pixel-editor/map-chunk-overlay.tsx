@@ -227,8 +227,8 @@ function ChunkCanvas({
 }
 
 function drawChunkGrid(ctx: CanvasRenderingContext2D, cellSize: number, width: number, height: number) {
-  ctx.strokeStyle = "rgba(15, 23, 42, 0.18)";
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(15, 23, 42, 0.4)";
+  ctx.lineWidth = 2;
 
   for (let index = 0; index <= PIXEL_CHUNK_SIZE; index += 1) {
     const offset = index * cellSize;

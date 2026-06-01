@@ -10,7 +10,6 @@ type MapChunkOverlayProps = {
   projection: MapProjection;
   zoom: number;
   visibleChunks: ChunkCoordinate[];
-  showGrid: boolean;
   hideEmptyPixels: boolean;
   readOnly: boolean;
   pixelColors: ReadonlyMap<string, string>;
@@ -37,7 +36,6 @@ export function MapChunkOverlay({
   projection,
   zoom,
   visibleChunks,
-  showGrid,
   hideEmptyPixels,
   readOnly,
   pixelColors,
@@ -118,9 +116,6 @@ export function MapChunkOverlay({
 
     drawPaintedPixels(ctx, projection, pixelColors, visibleChunkKeys);
 
-    if (!readOnly && showGrid) {
-      drawVisibleChunkGrid(ctx, projection, visibleChunks);
-    }
   }, [
     canvasSize.height,
     canvasSize.width,
@@ -128,7 +123,6 @@ export function MapChunkOverlay({
     pixelColors,
     projection,
     readOnly,
-    showGrid,
     visibleChunkKeys,
     visibleChunks,
     zoom
@@ -211,40 +205,6 @@ function drawPaintedPixels(
     ctx.fillStyle = color;
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
   });
-}
-
-function drawVisibleChunkGrid(ctx: CanvasRenderingContext2D, projection: MapProjection, visibleChunks: ChunkCoordinate[]) {
-  ctx.strokeStyle = "rgba(15, 23, 42, 0.34)";
-  ctx.lineWidth = 1;
-
-  visibleChunks.forEach((chunk) => {
-    const startX = chunk.chunkX * PIXEL_CHUNK_SIZE;
-    const startY = chunk.chunkY * PIXEL_CHUNK_SIZE;
-
-    for (let index = 0; index <= PIXEL_CHUNK_SIZE; index += 1) {
-      drawGridLine(ctx, projection, startX + index, startY, startX + index, startY + PIXEL_CHUNK_SIZE);
-      drawGridLine(ctx, projection, startX, startY + index, startX + PIXEL_CHUNK_SIZE, startY + index);
-    }
-  });
-}
-
-function drawGridLine(
-  ctx: CanvasRenderingContext2D,
-  projection: MapProjection,
-  startPixelX: number,
-  startPixelY: number,
-  endPixelX: number,
-  endPixelY: number
-) {
-  const start = projection.projectLngLat(pixelCoordinateToLngLatCorner({ pixelX: startPixelX, pixelY: startPixelY }));
-  const end = projection.projectLngLat(pixelCoordinateToLngLatCorner({ pixelX: endPixelX, pixelY: endPixelY }));
-
-  if (!start || !end) return;
-
-  ctx.beginPath();
-  ctx.moveTo(Math.round(start.x) + 0.5, Math.round(start.y) + 0.5);
-  ctx.lineTo(Math.round(end.x) + 0.5, Math.round(end.y) + 0.5);
-  ctx.stroke();
 }
 
 function getPixelScreenRect(projection: MapProjection, pixelX: number, pixelY: number) {

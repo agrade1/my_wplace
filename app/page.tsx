@@ -207,7 +207,6 @@ export default function Home() {
               projection={projection}
               zoom={mapViewState.zoom}
               visibleChunks={visibleChunks}
-              showGrid={isPaintMode && canPaintPixelLayer}
               hideEmptyPixels={!isPaintMode}
               readOnly={!isPaintMode || !canPaintPixelLayer}
               pixelColors={core.pixelColors}

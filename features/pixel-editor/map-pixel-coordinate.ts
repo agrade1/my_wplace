@@ -37,7 +37,7 @@ export type PixelBounds = {
 };
 
 export const PIXEL_REFERENCE_ZOOM = 15;
-export const PIXEL_CELL_SIZE_AT_REFERENCE_ZOOM = 20;
+export const PIXEL_CELL_SIZE_AT_REFERENCE_ZOOM = 40;
 
 const MERCATOR_TILE_SIZE = 256;
 const MAX_MERCATOR_LATITUDE = 85.05112878;
@@ -90,7 +90,7 @@ export function pixelCoordinateToLngLatCorner(coordinate: PixelCoordinate): LngL
 /**
  * 현재 지도 줌에서 픽셀 셀 하나가 화면에 몇 px로 보여야 하는지 계산합니다.
  *
- * 기준 줌에서는 한 셀이 20px이고, 줌이 1 증가할 때마다 화면 크기는 2배가 됩니다.
+ * 기준 줌에서는 한 셀이 40px이고, 줌이 1 증가할 때마다 화면 크기는 2배가 됩니다.
  */
 export function getPixelCellScreenSize(zoom: number) {
   return PIXEL_CELL_SIZE_AT_REFERENCE_ZOOM * 2 ** (zoom - PIXEL_REFERENCE_ZOOM);

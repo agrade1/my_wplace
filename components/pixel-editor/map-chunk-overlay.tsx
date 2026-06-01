@@ -205,7 +205,7 @@ function ChunkCanvas({
       const localY = (pixelY - chunkStartY) * cellSize;
 
       ctx.fillStyle = color;
-      ctx.fillRect(localX, localY, cellSize, cellSize);
+      ctx.fillRect(Math.floor(localX), Math.floor(localY), Math.ceil(cellSize), Math.ceil(cellSize));
     });
   }, [cellSize, chunkStartX, chunkStartY, hideEmptyPixels, pixelColors, readOnly, showGrid]);
 
@@ -227,8 +227,8 @@ function ChunkCanvas({
 }
 
 function drawChunkGrid(ctx: CanvasRenderingContext2D, cellSize: number, width: number, height: number) {
-  ctx.strokeStyle = "rgba(15, 23, 42, 0.4)";
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = "rgba(15, 23, 42, 0.34)";
+  ctx.lineWidth = 1;
 
   for (let index = 0; index <= PIXEL_CHUNK_SIZE; index += 1) {
     const offset = index * cellSize;

@@ -206,7 +206,6 @@ export default function Home() {
             <MapChunkOverlay
               projection={projection}
               zoom={mapViewState.zoom}
-              visibleChunks={visibleChunks}
               hideEmptyPixels={!isPaintMode}
               readOnly={!isPaintMode || !canPaintPixelLayer}
               pixelColors={core.pixelColors}

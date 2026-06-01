@@ -3,13 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MapProjection } from "@/components/map/korea-map-stage";
 import { lngLatToPixelCoordinate, pixelCoordinateToLngLatCorner } from "@/features/pixel-editor/map-pixel-coordinate";
-import { parsePixelId, PIXEL_CHUNK_SIZE, toPixelId } from "@/features/pixel-editor/pixel-storage";
-import type { ChunkCoordinate } from "@/features/pixel-editor/viewport";
+import { parsePixelId, toPixelId } from "@/features/pixel-editor/pixel-storage";
 
 type MapChunkOverlayProps = {
   projection: MapProjection;
   zoom: number;
-  visibleChunks: ChunkCoordinate[];
   hideEmptyPixels: boolean;
   readOnly: boolean;
   pixelColors: ReadonlyMap<string, string>;
@@ -35,7 +33,6 @@ type CanvasSize = {
 export function MapChunkOverlay({
   projection,
   zoom,
-  visibleChunks,
   hideEmptyPixels,
   readOnly,
   pixelColors,
@@ -49,10 +46,6 @@ export function MapChunkOverlay({
 }: MapChunkOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [canvasSize, setCanvasSize] = useState<CanvasSize>({ width: 0, height: 0 });
-  const visibleChunkKeys = useMemo(
-    () => new Set(visibleChunks.map((chunk) => toChunkKey(chunk.chunkX, chunk.chunkY))),
-    [visibleChunks]
-  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -114,7 +107,7 @@ export function MapChunkOverlay({
       ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
     }
 
-    drawPaintedPixels(ctx, projection, pixelColors, visibleChunkKeys);
+    drawPaintedPixels(ctx, projection, pixelColors, canvasSize);
 
   }, [
     canvasSize.height,
@@ -123,8 +116,6 @@ export function MapChunkOverlay({
     pixelColors,
     projection,
     readOnly,
-    visibleChunkKeys,
-    visibleChunks,
     zoom
   ]);
 
@@ -190,17 +181,13 @@ function drawPaintedPixels(
   ctx: CanvasRenderingContext2D,
   projection: MapProjection,
   pixelColors: ReadonlyMap<string, string>,
-  visibleChunkKeys: ReadonlySet<string>
+  canvasSize: CanvasSize
 ) {
   pixelColors.forEach((color, pixelId) => {
     const { pixelX, pixelY } = parsePixelId(pixelId);
-    const chunkX = Math.floor(pixelX / PIXEL_CHUNK_SIZE);
-    const chunkY = Math.floor(pixelY / PIXEL_CHUNK_SIZE);
-
-    if (!visibleChunkKeys.has(toChunkKey(chunkX, chunkY))) return;
-
     const rect = getPixelScreenRect(projection, pixelX, pixelY);
     if (!rect) return;
+    if (!isRectInsideCanvas(rect, canvasSize)) return;
 
     ctx.fillStyle = color;
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
@@ -221,6 +208,6 @@ function getPixelScreenRect(projection: MapProjection, pixelX: number, pixelY: n
   };
 }
 
-function toChunkKey(chunkX: number, chunkY: number) {
-  return `${chunkX},${chunkY}`;
+function isRectInsideCanvas(rect: { x: number; y: number; width: number; height: number }, canvasSize: CanvasSize) {
+  return rect.x + rect.width >= 0 && rect.y + rect.height >= 0 && rect.x <= canvasSize.width && rect.y <= canvasSize.height;
 }

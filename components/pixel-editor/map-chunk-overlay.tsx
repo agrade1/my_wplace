@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MapProjection } from "@/components/map/korea-map-stage";
 import { lngLatToPixelCoordinate, pixelCoordinateToLngLatCorner } from "@/features/pixel-editor/map-pixel-coordinate";
 import { parsePixelId, toPixelId } from "@/features/pixel-editor/pixel-storage";
 
 type MapChunkOverlayProps = {
   projection: MapProjection;
+  viewportKey: string;
   zoom: number;
   hideEmptyPixels: boolean;
   readOnly: boolean;
@@ -26,12 +27,13 @@ type CanvasSize = {
 };
 
 /**
- * 지도 viewport 위에 단일 캔버스를 올리고, 현재 보이는 청크 데이터만 그립니다.
+ * 지도 viewport 위에 단일 캔버스를 올리고 현재 painted pixel을 그립니다.
  *
- * 데이터 경계는 청크 단위로 유지하지만 렌더링은 하나의 캔버스에서 처리해 청크 사이 이음새를 줄입니다.
+ * 데이터는 청크 단위로 관리하되, 렌더링은 하나의 캔버스에서 처리해 청크 사이 이음새를 줄입니다.
  */
 export function MapChunkOverlay({
   projection,
+  viewportKey,
   zoom,
   hideEmptyPixels,
   readOnly,
@@ -108,16 +110,7 @@ export function MapChunkOverlay({
     }
 
     drawPaintedPixels(ctx, projection, pixelColors, canvasSize);
-
-  }, [
-    canvasSize.height,
-    canvasSize.width,
-    hideEmptyPixels,
-    pixelColors,
-    projection,
-    readOnly,
-    zoom
-  ]);
+  }, [canvasSize.height, canvasSize.width, hideEmptyPixels, pixelColors, projection, readOnly, viewportKey, zoom]);
 
   const getPixelIdFromEvent = (event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;

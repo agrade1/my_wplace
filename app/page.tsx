@@ -62,6 +62,15 @@ export default function Home() {
     if (!mapPixelBounds) return [];
     return getVisibleChunks(pixelBoundsToViewportBounds(mapPixelBounds));
   }, [mapPixelBounds]);
+  const viewportKey = mapBounds
+    ? [
+        mapBounds.west.toFixed(6),
+        mapBounds.south.toFixed(6),
+        mapBounds.east.toFixed(6),
+        mapBounds.north.toFixed(6),
+        mapViewState.zoom.toFixed(3)
+      ].join(":")
+    : "pending";
 
   useEffect(() => {
     if (!canPaintPixelLayer) {
@@ -205,6 +214,7 @@ export default function Home() {
           mapBounds && mapPixelBounds ? (
             <MapChunkOverlay
               projection={projection}
+              viewportKey={viewportKey}
               zoom={mapViewState.zoom}
               hideEmptyPixels={!isPaintMode}
               readOnly={!isPaintMode || !canPaintPixelLayer}

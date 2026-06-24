@@ -3,9 +3,14 @@
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ViewState } from "@vis.gl/react-maplibre";
-import { PixelEditorCanvas } from "@/components/pixel-editor/pixel-editor-canvas";
+import { MapChunkOverlay } from "@/components/pixel-editor/map-chunk-overlay";
+import {
+  lngLatBoundsToPixelBounds,
+  type LngLatBounds,
+  type PixelBounds
+} from "@/features/pixel-editor/map-pixel-coordinate";
 import { usePixelEditorCore } from "@/features/pixel-editor/use-pixel-editor-core";
-import { getViewportBounds } from "@/features/pixel-editor/viewport";
+import { getVisibleChunks } from "@/features/pixel-editor/viewport";
 
 const KoreaMapStage = dynamic(
   () => import("@/components/map/korea-map-stage").then((module) => module.KoreaMapStage),
@@ -27,9 +32,8 @@ const KoreaMapStage = dynamic(
   }
 );
 
-const GRID_SIZE = 32;
-const CELL_SIZE = 16;
-const PIXEL_LAYER_ZOOM_THRESHOLD = 13;
+const PIXEL_VIEW_ZOOM_THRESHOLD = 4;
+const PIXEL_PAINT_ZOOM_THRESHOLD = 4;
 const INITIAL_MAP_VIEW_STATE: ViewState = {
   longitude: 127.8,
   latitude: 36.2,
@@ -42,15 +46,38 @@ const INITIAL_MAP_VIEW_STATE: ViewState = {
 export default function Home() {
   const core = usePixelEditorCore();
   const [isPaintMode, setIsPaintMode] = useState(false);
-  const [centerCell] = useState({ x: 24, y: 24 });
+  const [isModePanelOpen, setIsModePanelOpen] = useState(false);
   const [mapViewState, setMapViewState] = useState<ViewState>(INITIAL_MAP_VIEW_STATE);
+  const [mapBounds, setMapBounds] = useState<LngLatBounds | null>(null);
   const zoomAnimationRef = useRef<number | null>(null);
-  const canShowPixelLayer = mapViewState.zoom > PIXEL_LAYER_ZOOM_THRESHOLD;
+  const canViewPixelLayer = mapViewState.zoom >= PIXEL_VIEW_ZOOM_THRESHOLD;
+  const canPaintPixelLayer = mapViewState.zoom >= PIXEL_PAINT_ZOOM_THRESHOLD;
 
-  const viewportBounds = useMemo(
-    () => getViewportBounds(centerCell.x, centerCell.y, GRID_SIZE, GRID_SIZE),
-    [centerCell.x, centerCell.y]
-  );
+  const mapPixelBounds = useMemo(() => {
+    if (!mapBounds) return null;
+    return lngLatBoundsToPixelBounds(mapBounds);
+  }, [mapBounds]);
+  const canRenderChunkOverlay = canViewPixelLayer && mapBounds !== null && mapPixelBounds !== null;
+  const visibleChunks = useMemo(() => {
+    if (!mapPixelBounds) return [];
+    return getVisibleChunks(pixelBoundsToViewportBounds(mapPixelBounds));
+  }, [mapPixelBounds]);
+  const viewportKey = mapBounds
+    ? [
+        mapBounds.west.toFixed(6),
+        mapBounds.south.toFixed(6),
+        mapBounds.east.toFixed(6),
+        mapBounds.north.toFixed(6),
+        mapViewState.zoom.toFixed(3)
+      ].join(":")
+    : "pending";
+
+  useEffect(() => {
+    if (!canPaintPixelLayer) {
+      setIsPaintMode(false);
+    }
+  }, [canPaintPixelLayer]);
+
   useEffect(() => {
     return () => {
       if (zoomAnimationRef.current !== null) {
@@ -65,7 +92,7 @@ export default function Home() {
     }
 
     const startZoom = mapViewState.zoom;
-    const targetZoom = Math.min(18, Math.max(5.4, Number((startZoom + delta).toFixed(2))));
+    const targetZoom = Math.min(18, Math.max(4, Number((startZoom + delta).toFixed(2))));
     const durationMs = 220;
     const startTime = performance.now();
 
@@ -100,68 +127,150 @@ export default function Home() {
       <KoreaMapStage
         viewState={mapViewState}
         onMove={setMapViewState}
-        showOverlay={canShowPixelLayer}
-        overlayHint={`Zoom above ${PIXEL_LAYER_ZOOM_THRESHOLD.toFixed(2)}`}
+        onBoundsChange={setMapBounds}
+        showOverlay={canRenderChunkOverlay}
+        overlayHint={`Zoom above ${PIXEL_VIEW_ZOOM_THRESHOLD.toFixed(2)}`}
+        onMapClick={() => setIsModePanelOpen(true)}
         controls={
-          <div
-            style={{
-              position: "absolute",
-              left: 16,
-              top: 16,
-              display: "grid",
-              overflow: "hidden",
-              borderRadius: 8,
-              backgroundColor: "rgba(248, 250, 252, 0.86)",
-              boxShadow: "0 14px 36px rgba(15, 23, 42, 0.16)",
-              backdropFilter: "blur(10px)"
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => updateMapZoom(1)}
-              aria-label="Zoom in"
-              style={zoomButtonStyle}
+          <>
+            <div
+              style={{
+                position: "absolute",
+                left: 16,
+                top: 16,
+                display: "grid",
+                overflow: "hidden",
+                borderRadius: 8,
+                backgroundColor: "rgba(248, 250, 252, 0.86)",
+                boxShadow: "0 14px 36px rgba(15, 23, 42, 0.16)",
+                backdropFilter: "blur(10px)"
+              }}
             >
-              +
-            </button>
-            <button
-              type="button"
-              onClick={() => updateMapZoom(-1)}
-              aria-label="Zoom out"
-              style={{ ...zoomButtonStyle, borderTop: "1px solid rgba(148, 163, 184, 0.32)" }}
-            >
-              -
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={() => updateMapZoom(1)}
+                aria-label="Zoom in"
+                style={zoomButtonStyle}
+              >
+                +
+              </button>
+              <button
+                type="button"
+                onClick={() => updateMapZoom(-1)}
+                aria-label="Zoom out"
+                style={{ ...zoomButtonStyle, borderTop: "1px solid rgba(148, 163, 184, 0.32)" }}
+              >
+                -
+              </button>
+            </div>
+
+            {isModePanelOpen ? (
+              <div
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  bottom: 24,
+                  display: "inline-flex",
+                  gap: 4,
+                  padding: 4,
+                  borderRadius: 999,
+                  backgroundColor: "rgba(248, 250, 252, 0.9)",
+                  boxShadow: "0 18px 48px rgba(15, 23, 42, 0.18)",
+                  transform: "translateX(-50%)",
+                  backdropFilter: "blur(10px)"
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setIsPaintMode(false)}
+                  style={{
+                    ...modeButtonStyle,
+                    backgroundColor: isPaintMode ? "transparent" : "#111827",
+                    color: isPaintMode ? "#334155" : "#ffffff"
+                  }}
+                >
+                  View
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!canPaintPixelLayer) return;
+                    setIsPaintMode(true);
+                  }}
+                  style={{
+                    ...modeButtonStyle,
+                    backgroundColor: isPaintMode ? "#111827" : "transparent",
+                    color: canPaintPixelLayer ? (isPaintMode ? "#ffffff" : "#334155") : "#94a3b8",
+                    cursor: canPaintPixelLayer ? "pointer" : "not-allowed"
+                  }}
+                >
+                  Paint
+                </button>
+              </div>
+            ) : null}
+          </>
         }
-        overlay={
-          <PixelEditorCanvas
-            gridSize={GRID_SIZE}
-            cellSize={CELL_SIZE}
-            viewportStartX={viewportBounds.startX}
-            viewportStartY={viewportBounds.startY}
-            showGrid={isPaintMode}
-            hideEmptyPixels={!isPaintMode}
-            readOnly={!isPaintMode}
-            palette={core.palette}
-            activeColor={core.activeColor}
-            selected={core.selected}
-            pixelColors={core.pixelColors}
-            onRequestPaintMode={(id, button) => {
-              setIsPaintMode(true);
-              core.onPixelMouseDown(id, button);
-            }}
-            onSelectColor={core.onSelectColor}
-            onPixelPointerDown={core.onPixelMouseDown}
-            onPixelPointerMove={core.onPixelMouseEnter}
-            onPointerEnd={core.onPointerEnd}
-            onSpaceSelectStart={core.onSpaceSelectStart}
-            onSpaceSelectEnd={core.onSpaceSelectEnd}
-          />
+        overlay={(projection) =>
+          mapBounds && mapPixelBounds ? (
+            <MapChunkOverlay
+              projection={projection}
+              viewportKey={viewportKey}
+              zoom={mapViewState.zoom}
+              hideEmptyPixels={!isPaintMode}
+              readOnly={!isPaintMode || !canPaintPixelLayer}
+              pixelColors={core.pixelColors}
+              onRequestPaintMode={(id, button) => {
+                setIsPaintMode(true);
+                core.onPixelMouseDown(id, button);
+              }}
+              onPixelPointerDown={core.onPixelMouseDown}
+              onPixelPointerMove={core.onPixelMouseEnter}
+              onPointerEnd={core.onPointerEnd}
+              onSpaceSelectStart={core.onSpaceSelectStart}
+              onSpaceSelectEnd={core.onSpaceSelectEnd}
+              onWheelZoom={updateMapZoom}
+            />
+          ) : null
         }
       />
+      <div
+        style={{
+          position: "absolute",
+          right: 16,
+          bottom: 16,
+          maxWidth: 360,
+          padding: "10px 12px",
+          borderRadius: 8,
+          backgroundColor: "rgba(248, 250, 252, 0.86)",
+          color: "#334155",
+          fontSize: 12,
+          lineHeight: 1.5,
+          boxShadow: "0 14px 36px rgba(15, 23, 42, 0.14)",
+          backdropFilter: "blur(10px)"
+        }}
+      >
+        {mapPixelBounds ? (
+          <>
+            <div>
+              pixels {mapPixelBounds.startX},{mapPixelBounds.startY} to {mapPixelBounds.endX},{mapPixelBounds.endY}
+            </div>
+            <div>chunks {visibleChunks.map(({ chunkX, chunkY }) => `(${chunkX},${chunkY})`).join(", ")}</div>
+          </>
+        ) : (
+          "loading viewport"
+        )}
+      </div>
     </main>
   );
+}
+
+function pixelBoundsToViewportBounds(bounds: PixelBounds) {
+  return {
+    startX: bounds.startX,
+    startY: bounds.startY,
+    endX: bounds.endX,
+    endY: bounds.endY
+  };
 }
 
 const zoomButtonStyle = {
@@ -173,4 +282,13 @@ const zoomButtonStyle = {
   cursor: "pointer",
   fontSize: 22,
   lineHeight: 1
+} as const;
+
+const modeButtonStyle = {
+  minWidth: 72,
+  border: 0,
+  borderRadius: 999,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14
 } as const;

@@ -1,18 +1,29 @@
 "use client";
 
+import { useMemo, useRef, useState } from "react";
 import Map, {
+  type MapRef,
   type LngLatBoundsLike,
   type ViewState,
   type ViewStateChangeEvent
 } from "@vis.gl/react-maplibre";
+import type { LngLatBounds, LngLatCoordinate, ScreenPoint } from "@/features/pixel-editor/map-pixel-coordinate";
+import type { LngLatBounds as MapLibreLngLatBounds } from "maplibre-gl";
+
+export type MapProjection = {
+  projectLngLat: (coordinate: LngLatCoordinate) => ScreenPoint | null;
+  unprojectScreenPoint: (point: ScreenPoint) => LngLatCoordinate | null;
+};
 
 type KoreaMapStageProps = {
   viewState: ViewState;
   onMove: (nextViewState: ViewState) => void;
-  overlay: React.ReactNode;
+  overlay: (projection: MapProjection) => React.ReactNode;
   controls: React.ReactNode;
   showOverlay: boolean;
   overlayHint: string;
+  onBoundsChange: (bounds: LngLatBounds) => void;
+  onMapClick: () => void;
 };
 
 const MAP_STYLE = "https://tiles.openfreemap.org/styles/bright";
@@ -27,8 +38,36 @@ export function KoreaMapStage({
   overlay,
   controls,
   showOverlay,
-  overlayHint
+  overlayHint,
+  onBoundsChange,
+  onMapClick
 }: KoreaMapStageProps) {
+  const mapRef = useRef<MapRef | null>(null);
+  const [isMapReady, setIsMapReady] = useState(false);
+
+  const projection = useMemo<MapProjection>(
+    () => ({
+      projectLngLat: (coordinate) => {
+        const point = mapRef.current?.project([coordinate.lng, coordinate.lat]);
+        if (!point) return null;
+
+        return { x: point.x, y: point.y };
+      },
+      unprojectScreenPoint: (point) => {
+        const lngLat = mapRef.current?.unproject([point.x, point.y]);
+        if (!lngLat) return null;
+
+        return { lng: lngLat.lng, lat: lngLat.lat };
+      }
+    }),
+    []
+  );
+
+  const notifyBoundsChange = (event: ViewStateChangeEvent) => {
+    onMove(event.viewState);
+    onBoundsChange(toLngLatBounds(event.target.getBounds()));
+  };
+
   return (
     <div
       style={{
@@ -40,9 +79,15 @@ export function KoreaMapStage({
       }}
     >
       <Map
+        ref={mapRef}
         {...viewState}
-        onMove={(event: ViewStateChangeEvent) => onMove(event.viewState)}
-        minZoom={5.4}
+        onLoad={(event) => {
+          setIsMapReady(true);
+          onBoundsChange(toLngLatBounds(event.target.getBounds()));
+        }}
+        onClick={onMapClick}
+        onMove={notifyBoundsChange}
+        minZoom={4}
         maxZoom={18}
         maxBounds={KOREA_BOUNDS}
         mapStyle={MAP_STYLE}
@@ -51,33 +96,20 @@ export function KoreaMapStage({
       >
       </Map>
 
-      {controls}
-
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          display: "grid",
-          alignItems: "center",
-          justifyItems: "center",
-          pointerEvents: "none",
-          padding: 24
-        }}
-      >
-        {showOverlay ? (
-          <div
-            style={{
-              pointerEvents: "auto",
-              padding: 16,
-              borderRadius: 20,
-              backgroundColor: "rgba(248, 250, 252, 0.84)",
-              boxShadow: "0 24px 80px rgba(15, 23, 42, 0.18)",
-              backdropFilter: "blur(10px)"
-            }}
-          >
-            {overlay}
-          </div>
-        ) : (
+      {showOverlay && isMapReady ? (
+        overlay(projection)
+      ) : (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "grid",
+            alignItems: "center",
+            justifyItems: "center",
+            pointerEvents: "none",
+            padding: 24
+          }}
+        >
           <div
             style={{
               maxWidth: 320,
@@ -92,8 +124,22 @@ export function KoreaMapStage({
           >
             {overlayHint}
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {controls}
     </div>
   );
+}
+
+function toLngLatBounds(bounds: MapLibreLngLatBounds): LngLatBounds {
+  const west = bounds.getWest();
+  const east = bounds.getEast();
+
+  return {
+    west: Math.min(west, east),
+    south: bounds.getSouth(),
+    east: Math.max(west, east),
+    north: bounds.getNorth()
+  };
 }
